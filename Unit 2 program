@@ -1,0 +1,93 @@
+import random
+import numpy as np
+
+# Maze definition
+# S = Start, G = Goal, T = Trap, 0 = Empty
+maze = [
+    ['S', 0,   0,   0],
+    [0,   'T', 0,   0],
+    [0,   0,   'T', 0],
+    [0,   0,   0,   'G']
+]
+
+ROWS, COLS = len(maze), len(maze[0])
+
+# Hyperparameters
+alpha = 0.1       # learning rate
+gamma = 0.9       # discount factor
+episodes = 5000
+
+# State-value table
+V = np.zeros((ROWS, COLS))
+
+# Actions: up, down, left, right
+actions = [(-1,0), (1,0), (0,-1), (0,1)]
+
+def is_valid(r, c):
+    return 0 <= r < ROWS and 0 <= c < COLS
+
+def get_reward(r, c):
+    if maze[r][c] == 'G':
+        return 10
+    elif maze[r][c] == 'T':
+        return -10
+    else:
+        return -1
+
+def is_terminal(r, c):
+    return maze[r][c] in ['G', 'T']
+
+def start_position():
+    for r in range(ROWS):
+        for c in range(COLS):
+            if maze[r][c] == 'S':
+                return r, c
+
+# TD(0) learning
+for _ in range(episodes):
+    r, c = start_position()
+
+    while not is_terminal(r, c):
+        dr, dc = random.choice(actions)
+        nr, nc = r + dr, c + dc
+
+        if not is_valid(nr, nc):
+            continue
+
+        reward = get_reward(nr, nc)
+
+        # TD(0) update
+        V[r, c] += alpha * (reward + gamma * V[nr, nc] - V[r, c])
+
+        r, c = nr, nc
+
+# Extract optimal path (greedy)
+def extract_path():
+    path = []
+    r, c = start_position()
+    path.append((r, c))
+
+    while not is_terminal(r, c):
+        best_value = -float('inf')
+        best_move = None
+
+        for dr, dc in actions:
+            nr, nc = r + dr, c + dc
+            if is_valid(nr, nc) and V[nr, nc] > best_value:
+                best_value = V[nr, nc]
+                best_move = (nr, nc)
+
+        if best_move is None:
+            break
+
+        r, c = best_move
+        path.append((r, c))
+
+    return path
+
+# Output results
+print("State-Value Function V:")
+print(np.round(V, 2))
+
+print("\nOptimal Path:")
+print(extract_path())
