@@ -1,0 +1,76 @@
+import gymnasium as gym
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+# --- Simple Warehouse Environment ---
+class WarehouseEnv(gym.Env):
+    def __init__(self):
+        self.action_space = gym.spaces.Discrete(4)  # up,down,left,right
+        self.observation_space = gym.spaces.Box(0, 4, (4,), dtype=np.float32)
+        self.reset()
+
+    def reset(self, seed=None, options=None):
+        self.robot = np.array([0, 0])
+        self.item = np.array([2, 2])
+        self.goal = np.array([3, 3])
+        self.carry = 0
+        return self._obs(), {}
+
+    def _obs(self):
+        return np.array([*self.robot, *self.goal], dtype=np.float32)
+
+    def step(self, a):
+        if a == 0: self.robot[1] += 1
+        if a == 1: self.robot[1] -= 1
+        if a == 2: self.robot[0] -= 1
+        if a == 3: self.robot[0] += 1
+        self.robot = np.clip(self.robot, 0, 3)
+
+        r, done = -0.01, False
+        if not self.carry and np.all(self.robot == self.item):
+            self.carry, r = 1, 1.0
+        if self.carry and np.all(self.robot == self.goal):
+            r, done = 5.0, True
+        return self._obs(), r, done, False, {}
+
+# --- PPO Network ---
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Sequential(nn.Linear(4, 64), nn.Tanh())
+        self.pi = nn.Linear(64, 4)
+        self.v = nn.Linear(64, 1)
+
+    def forward(self, x):
+        x = self.fc(x)
+        return self.pi(x), self.v(x)
+
+# --- PPO Training ---
+env = WarehouseEnv()
+net = Net()
+opt = optim.Adam(net.parameters(), lr=3e-4)
+gamma, clip = 0.99, 0.2
+
+for _ in range(300):
+    obs, _ = env.reset()
+    obs = torch.tensor(obs)
+    logits, val = net(obs)
+    dist = torch.distributions.Categorical(logits=logits)
+    act = dist.sample()
+
+    nobs, r, done, _, _ = env.step(act.item())
+    adv = r - val.item()
+
+    nlogits, nval = net(torch.tensor(nobs))
+    ndist = torch.distributions.Categorical(logits=nlogits)
+    ratio = torch.exp(ndist.log_prob(act) - dist.log_prob(act))
+
+    loss = -torch.min(ratio * adv,
+                      torch.clamp(ratio, 1-clip, 1+clip) * adv) \
+           + (r - nval.squeeze())**2
+
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
