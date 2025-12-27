@@ -1,0 +1,70 @@
+import random
+
+# Configuration
+DAYS = 100
+PRICE = 10
+ORDER_COST = 2
+HOLDING_COST = 1
+STOCKOUT_COST = 5
+MAX_INVENTORY = 100
+
+# Demand Generator
+def generate_demand():
+    return random.randint(5, 25)
+
+# Inventory Policies
+def random_policy(inventory):
+    return random.randint(0, 20)
+
+def reorder_policy(inventory):
+    if inventory < 30:
+        return 50 - inventory
+    return 0
+
+# Simulation
+def simulate(policy):
+    inventory = 40
+    total_profit = 0
+
+    for day in range(DAYS):
+        demand = generate_demand()
+        order = policy(inventory)
+
+        # Order arrives immediately
+        inventory += order
+        if inventory > MAX_INVENTORY:
+            inventory = MAX_INVENTORY
+
+        # Sales
+        sales = min(inventory, demand)
+        inventory -= sales
+
+        # Reward calculation
+        revenue = sales * PRICE
+        holding_cost = inventory * HOLDING_COST
+        stockout_cost = max(0, demand - sales) * STOCKOUT_COST
+        ordering_cost = order * ORDER_COST
+
+        profit = revenue - holding_cost - stockout_cost - ordering_cost
+        total_profit += profit
+
+        print(
+            "Day:", day + 1,
+            "| Demand:", demand,
+            "| Order:", order,
+            "| Inventory:", inventory,
+            "| Profit:", profit
+        )
+
+    return total_profit
+
+# Run Policies
+print("\nRunning Random Policy\n")
+random_profit = simulate(random_policy)
+
+print("\nRunning Reorder Policy\n")
+reorder_profit = simulate(reorder_policy)
+
+print("\nFinal Results")
+print("Random Policy Total Profit:", random_profit)
+print("Reorder Policy Total Profit:", reorder_profit)
