@@ -1,0 +1,50 @@
+import random
+
+# Environment State
+class Environment:
+    def __init__(self):
+        self.location = "start"
+        self.package_picked = False
+        self.done = False
+
+# MAXQ Agent
+class MAXQAgent:
+    def __init__(self, name):
+        self.name = name
+        self.reward = 0
+
+    def navigate(self, env):
+        if env.location == "start":
+            env.location = "pickup"
+            print(f"{self.name} navigates to PICKUP")
+        elif env.location == "pickup":
+            env.location = "drop"
+            print(f"{self.name} navigates to DROP")
+
+    def handle(self, env):
+        if env.location == "pickup" and not env.package_picked:
+            env.package_picked = True
+            print(f"{self.name} PICKS the package")
+        elif env.location == "drop" and env.package_picked:
+            env.done = True
+            print(f"{self.name} DROPS the package")
+
+# Root MAXQ Task
+def complete_delivery(agent1, agent2, env):
+    while not env.done:
+        agent1.navigate(env)
+        agent2.handle(env)
+
+    agent1.reward += 100
+    agent2.reward += 100
+
+# Simulation
+env = Environment()
+agent1 = MAXQAgent("Agent-1 (Navigator)")
+agent2 = MAXQAgent("Agent-2 (Handler)")
+
+complete_delivery(agent1, agent2, env)
+
+print("\nFinal Rewards:")
+print(agent1.name, "Reward:", agent1.reward)
+print(agent2.name, "Reward:", agent2.reward)
